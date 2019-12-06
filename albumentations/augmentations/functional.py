@@ -9,6 +9,7 @@ import numpy as np
 from scipy.ndimage.filters import gaussian_filter
 
 from albumentations.augmentations.bbox_utils import denormalize_bbox, normalize_bbox
+from albumentations.augmentations.keypoints_utils import angle_to_2pi_range
 
 MAX_VALUES_BY_DTYPE = {
     np.dtype("uint8"): 255,
@@ -16,6 +17,15 @@ MAX_VALUES_BY_DTYPE = {
     np.dtype("uint32"): 4294967295,
     np.dtype("float32"): 1.0,
 }
+
+
+def angle_2pi_range(func):
+    @wraps(func)
+    def wrapped_function(keypoint, *args, **kwargs):
+        (x, y, a, s) = func(keypoint, *args, **kwargs)
+        return (x, y, angle_to_2pi_range(a), s)
+
+    return wrapped_function
 
 
 def clip(img, dtype, maxval):
@@ -30,16 +40,6 @@ def clipped(func):
         return clip(func(img, *args, **kwargs), dtype, maxval)
 
     return wrapped_function
-
-
-def angle_to_2pi_range(angle):
-    if 0 <= angle <= 2 * np.pi:
-        return angle
-
-    if angle < 0:
-        angle += (abs(angle) // (2 * np.pi) + 1) * 2 * np.pi
-
-    return angle % (2 * np.pi)
 
 
 def preserve_shape(func):
@@ -246,6 +246,7 @@ def bbox_shift_scale_rotate(bbox, angle, scale, dx, dy, interpolation, rows, col
     return x_min, y_min, x_max, y_max
 
 
+@angle_2pi_range
 def keypoint_shift_scale_rotate(keypoint, angle, scale, dx, dy, rows, cols, **params):
     x, y, a, s, = keypoint[:4]
     height, width = rows, cols
@@ -617,6 +618,13 @@ def shift_rgb(img, r_shift, g_shift, b_shift):
         return _shift_rgb_uint8(img, r_shift, g_shift, b_shift)
 
     return _shift_rgb_non_uint8(img, r_shift, g_shift, b_shift)
+
+
+@clipped
+def linear_transformation_rgb(img, transformation_matrix):
+    result_img = cv2.transform(img, transformation_matrix)
+
+    return result_img
 
 
 def clahe(img, clip_limit=2.0, tile_grid_size=(8, 8)):
@@ -1585,6 +1593,7 @@ def bbox_transpose(bbox, axis, rows, cols):
     return bbox
 
 
+@angle_2pi_range
 def keypoint_vflip(keypoint, rows, cols):
     """Flip a keypoint vertically around the x-axis.
 
@@ -1597,13 +1606,12 @@ def keypoint_vflip(keypoint, rows, cols):
         tuple: A keypoint `(x, y, angle, scale)`.
 
     """
-    x, y, angle, scale = keypoint[:4]
-    c = math.cos(angle)
-    s = math.sin(angle)
-    angle = math.atan2(-s, c)
+    x, y, angle, scale = keypoint
+    angle = -angle
     return x, (rows - 1) - y, angle, scale
 
 
+@angle_2pi_range
 def keypoint_hflip(keypoint, rows, cols):
     """Flip a keypoint horizontally around the y-axis.
 
@@ -1616,10 +1624,8 @@ def keypoint_hflip(keypoint, rows, cols):
         tuple: A keypoint `(x, y, angle, scale)`.
 
     """
-    x, y, angle, scale = keypoint[:4]
-    c = math.cos(angle)
-    s = math.sin(angle)
-    angle = math.atan2(s, -c)
+    x, y, angle, scale = keypoint
+    angle = math.pi - angle
     return (cols - 1) - x, y, angle, scale
 
 
@@ -1654,6 +1660,7 @@ def keypoint_flip(keypoint, d, rows, cols):
     return keypoint
 
 
+@angle_2pi_range
 def keypoint_rot90(keypoint, factor, rows, cols, **params):
     """Rotates a keypoint by 90 degrees CCW (see np.rot90)
 
@@ -1685,6 +1692,7 @@ def keypoint_rot90(keypoint, factor, rows, cols, **params):
     return x, y, angle, scale
 
 
+@angle_2pi_range
 def keypoint_rotate(keypoint, angle, rows, cols, **params):
     """Rotate a keypoint by angle.
 
@@ -1829,7 +1837,6 @@ def keypoint_transpose(keypoint):
 
     """
     x, y, angle, scale = keypoint[:4]
-    angle = angle_to_2pi_range(angle)
 
     if angle <= np.pi:
         angle = np.pi - angle
@@ -1837,3 +1844,123 @@ def keypoint_transpose(keypoint):
         angle = 3 * np.pi - angle
 
     return y, x, angle, scale
+
+
+@clipped
+def _multiply_uint8(img, multiplier):
+    img = img.astype(np.float32)
+    return np.multiply(img, multiplier)
+
+
+@preserve_shape
+def _multiply_uint8_optimized(img, multiplier):
+    if is_grayscale_image(img) or len(multiplier) == 1:
+        multiplier = multiplier[0]
+        lut = np.arange(0, 256, dtype=np.float32)
+        lut *= multiplier
+        lut = clip(lut, np.uint8, MAX_VALUES_BY_DTYPE[img.dtype])
+        func = _maybe_process_in_chunks(cv2.LUT, lut=lut)
+        return func(img)
+
+    channels = img.shape[-1]
+    lut = [np.arange(0, 256, dtype=np.float32)] * channels
+    lut = np.stack(lut, axis=-1)
+
+    lut *= multiplier
+    lut = clip(lut, np.uint8, MAX_VALUES_BY_DTYPE[img.dtype])
+
+    images = []
+    for i in range(channels):
+        func = _maybe_process_in_chunks(cv2.LUT, lut=lut[:, i])
+        images.append(func(img[:, :, i]))
+    return np.stack(images, axis=-1)
+
+
+@clipped
+def _multiply_non_uint8(img, multiplier):
+    return img * multiplier
+
+
+def multiply(img, multiplier):
+    """
+    Args:
+        img (numpy.ndarray): Image.
+        multiplier (numpy.ndarray): Multiplier coefficient.
+
+    Returns:
+        numpy.ndarray: Image multiplied by `multiplier` coefficient.
+
+    """
+    if img.dtype == np.uint8:
+        if len(multiplier.shape) == 1:
+            return _multiply_uint8_optimized(img, multiplier)
+        else:
+            return _multiply_uint8(img, multiplier)
+    else:
+        return _multiply_non_uint8(img, multiplier)
+
+
+def fancy_pca(img, alpha=0.1):
+    """Perform 'Fancy PCA' augmentation from:
+    http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf
+
+    Args:
+        img:  numpy array with (h, w, rgb) shape, as ints between 0-255)
+        alpha:  how much to perturb/scale the eigen vecs and vals
+                the paper used std=0.1
+
+    Returns:
+        numpy image-like array as float range(0, 1)
+
+    """
+    assert is_rgb_image(img) and img.dtype == np.uint8
+
+    orig_img = img.astype(float).copy()
+
+    img = img / 255.0  # rescale to 0 to 1 range
+
+    # flatten image to columns of RGB
+    img_rs = img.reshape(-1, 3)
+    # img_rs shape (640000, 3)
+
+    # center mean
+    img_centered = img_rs - np.mean(img_rs, axis=0)
+
+    # paper says 3x3 covariance matrix
+    img_cov = np.cov(img_centered, rowvar=False)
+
+    # eigen values and eigen vectors
+    eig_vals, eig_vecs = np.linalg.eigh(img_cov)
+
+    # sort values and vector
+    sort_perm = eig_vals[::-1].argsort()
+    eig_vals[::-1].sort()
+    eig_vecs = eig_vecs[:, sort_perm]
+
+    # get [p1, p2, p3]
+    m1 = np.column_stack((eig_vecs))
+
+    # get 3x1 matrix of eigen values multiplied by random variable draw from normal
+    # distribution with mean of 0 and standard deviation of 0.1
+    m2 = np.zeros((3, 1))
+    # according to the paper alpha should only be draw once per augmentation (not once per channel)
+    # alpha = np.random.normal(0, alpha_std)
+
+    # broad cast to speed things up
+    m2[:, 0] = alpha * eig_vals[:]
+
+    # this is the vector that we're going to add to each pixel in a moment
+    add_vect = np.matrix(m1) * np.matrix(m2)
+
+    for idx in range(3):  # RGB
+        orig_img[..., idx] += add_vect[idx] * 255
+
+    # for image processing it was found that working with float 0.0 to 1.0
+    # was easier than integers between 0-255
+    # orig_img /= 255.0
+    orig_img = np.clip(orig_img, 0.0, 255.0)
+
+    # orig_img *= 255
+    orig_img = orig_img.astype(np.uint8)
+
+    return orig_img

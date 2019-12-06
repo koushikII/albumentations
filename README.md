@@ -1,5 +1,5 @@
 # Albumentations
-[![Build Status](https://travis-ci.org/albu/albumentations.svg?branch=master)](https://travis-ci.org/albu/albumentations)
+[![Build Status](https://travis-ci.org/albumentations-team/albumentations.svg?branch=master)](https://travis-ci.org/albu/albumentations)
 [![Documentation Status](https://readthedocs.org/projects/albumentations/badge/?version=latest)](https://albumentations.readthedocs.io/en/latest/?badge=latest)
 
 
@@ -121,6 +121,7 @@ Pixel-level transforms will change just an input image and will leave any additi
 - [Cutout](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.Cutout)
 - [Downscale](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.Downscale)
 - [Equalize](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.Equalize)
+- [FancyPCA](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.FancyPCA)
 - [FromFloat](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.FromFloat)
 - [GaussNoise](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.GaussNoise)
 - [GaussianBlur](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.GaussianBlur)
@@ -135,6 +136,7 @@ Pixel-level transforms will change just an input image and will leave any additi
 - [JpegCompression](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.JpegCompression)
 - [MedianBlur](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.MedianBlur)
 - [MotionBlur](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.MotionBlur)
+- [MultiplicativeNoise](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.MultiplicativeNoise)
 - [Normalize](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.Normalize)
 - [Posterize](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.Posterize)
 - [RGBShift](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.RGBShift)
@@ -150,6 +152,7 @@ Pixel-level transforms will change just an input image and will leave any additi
 - [Solarize](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.Solarize)
 - [ToFloat](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.ToFloat)
 - [ToGray](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.ToGray)
+- [ToSepia](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.ToSepia)
 
 ## Spatial-level transforms
 Spatial-level transforms will simultaneously change both an input image as well as additional targets such as masks, bounding boxes, and keypoints. The following table shows which additional targets are supported by each transform.
@@ -171,6 +174,7 @@ Spatial-level transforms will simultaneously change both an input image as well 
 | [IAAPiecewiseAffine](https://albumentations.readthedocs.io/en/latest/api/imgaug.html#albumentations.imgaug.transforms.IAAPiecewiseAffine)                           | ✓     | ✓     | ✓      | ✓         |
 | [Lambda](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.Lambda)                                     | ✓     | ✓     | ✓      | ✓         |
 | [LongestMaxSize](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.LongestMaxSize)                     | ✓     | ✓     | ✓      | ✓         |
+| [MaskDropout](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.MaskDropout)                           | ✓     | ✓     |        |           |
 | NoOp                                                                                                                                                                | ✓     | ✓     | ✓      | ✓         |
 | [OpticalDistortion](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.OpticalDistortion)               | ✓     | ✓     |        |           |
 | [PadIfNeeded](https://albumentations.readthedocs.io/en/latest/api/augmentations.html#albumentations.augmentations.transforms.PadIfNeeded)                           | ✓     | ✓     | ✓      | ✓         |
@@ -199,31 +203,30 @@ Albumentations has equivalents for common torchvision transforms as well as plen
 ## Benchmarking results
 To run the benchmark yourself follow the instructions in [benchmark/README.md](https://github.com/albu/albumentations/blob/master/benchmark/README.md)
 
-Results for running the benchmark on first 2000 images from the ImageNet validation set using an Intel Xeon Gold 6140 CPU.
-For libraries that work with NumPy arrays, the uint8 data type is used to represent an image.
+Results for running the benchmark on first 2000 images from the ImageNet validation set using an Intel Xeon Platinum 8168 CPU.
+All outputs are converted to a contiguous NumPy array with the np.uint8 data type.
 The table shows how many images per second can be processed on a single core, higher is better.
 
-|                    | albumentations <br><small>0.4.0</small> |  imgaug <br><small>0.2.9</small> | torchvision (Pillow backend) <br><small>0.4.0</small>  | torchvision (Pillow-SIMD backend) <br><small>0.4.0</small> | keras  <br><small>2.3.1</small> | augmentor  <br><small>0.2.6</small> | solt  <br><small>0.1.8</small>  |
-|------------------------|:--------------:|:------:|:--------------------:|:-------------------------:|:-----:|:---------:|:-----:|
-| HorizontalFlip         |       961      |   754  |         **1246**     |            1251           |  669  |    1154   |  619  |
-| VerticalFlip           |     **3941**   |  2069  |         1105         |            1150           |  3884 |    1054   |  3540 |
-| Rotate                 |     **375**    |   300  |          83          |            120            |   18  |     36    |   91  |
-| ShiftScaleRotate       |     **664**    |   454  |          75          |            116            |   23  |     -     |   -   |
-| Brightness             |     **1806**   |  1067  |          260         |            320            |  133  |    252    |  1694 |
-| Contrast               |     **1701**   |  1123  |          190         |            241            |   -   |    184    |  1699 |
-| BrightnessContrast     |     **1749**   |   577  |          114         |            143            |   -   |    112    |  880  |
-| ShiftRGB               |     **1813**   |   984  |           -          |             -             |  509  |     -     |   -   |
-| ShiftHSV               |     **349**    |   340  |          35          |             45            |   -   |     -     |  106  |
-| Gamma                  |     **1926**   |    -   |          549         |            580            |   -   |     -     |  701  |
-| Grayscale              |     **3688**   |   307  |          487         |            574            |   -   |    872    |  2927 |
-| RandomCrop64           |     **602010** |  2908  |         22398        |           33850           |   -   |   14267   | 38450 |
-| PadToSize512           |     **2749**   |    -   |          350         |            378            |   -   |     -     |  2370 |
-| Resize512              |       576      |   427  |          211         |            **648**        |   -   |    213    |  568  |
-| RandomSizedCrop_64_512 |     **2223**   |   715  |          334         |            1023           |   -   |    339    |  1949 |
-| Equalize               |     **466**    |  460   |           -          |             -             |   -   |    256    |   -   |
+|                      |albumentations<br><small>0.4.2</small>|imgaug<br><small>0.3.0</small>|torchvision (Pillow-SIMD backend)<br><small>0.4.1</small>|keras<br><small>2.3.1</small>|augmentor<br><small>0.2.6</small>|solt<br><small>0.1.8</small>|
+|----------------------|:------------------------------------:|:----------------------------:|:-------------------------------------------------------:|:---------------------------:|:-------------------------------:|:--------------------------:|
+|HorizontalFlip        |               **2183**               |             1403             |                          1757                           |            1068             |              1779               |            1031            |
+|VerticalFlip          |               **4217**               |             2334             |                          1538                           |            4196             |              1541               |            3820            |
+|Rotate                |               **456**                |             368              |                           163                           |             32              |               60                |            116             |
+|ShiftScaleRotate      |               **800**                |             549              |                           146                           |             34              |                -                |             -              |
+|Brightness            |               **2209**               |             1288             |                           405                           |             211             |               403               |            2070            |
+|Contrast              |               **2215**               |             1387             |                           338                           |              -              |               337               |            2073            |
+|BrightnessContrast    |               **2208**               |             740              |                           193                           |              -              |               193               |            1060            |
+|ShiftRGB              |               **2214**               |             1303             |                            -                            |             407             |                -                |             -              |
+|ShiftHSV              |               **468**                |             443              |                           61                            |              -              |                -                |            144             |
+|Gamma                 |               **2281**               |              -               |                           730                           |              -              |                -                |            925             |
+|Grayscale             |               **5019**               |             436              |                           788                           |              -              |              1451               |            4191            |
+|RandomCrop64          |              **173877**              |             3340             |                          43792                          |              -              |              36869              |           36178            |
+|PadToSize512          |               **2906**               |              -               |                           553                           |              -              |                -                |            2711            |
+|Resize512             |                 663                  |             506              |                         **968**                         |              -              |               954               |            673             |
+|RandomSizedCrop_64_512|               **2565**               |             933              |                          1395                           |              -              |              1353               |            2360            |
+|Equalize              |               **759**                |             457              |                            -                            |              -              |               684               |             -              |
 
-Python and library versions: Python 3.7.3, numpy 1.17.2, pillow 6.2.0, pillow-simd 6.0.0.post0, opencv-python 4.1.1.26, scikit-image 0.15.0, scipy 1.3.0.
-
+Python and library versions: Python 3.7.5 (default, Oct 19 2019, 00:03:48) \[GCC 8.3.0\], numpy 1.17.3, pillow-simd 6.0.0.post0, opencv-python 4.1.1.26, scikit-image 0.16.2, scipy 1.3.1.
 
 ## Contributing
 
